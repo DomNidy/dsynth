@@ -50,8 +50,8 @@ AudioFile *createWavFile(const char *fileName, uint32_t sampleRate, uint16_t bit
     audioFile->samplesPerBeat = sampleRate * 60 / bpm;
 
     // "RIFF" chunk descriptor
-    *audioFile->header.wavHeader.chunkId = "RIFF";
-    audioFile->header.wavHeader.chunkSize = 36; // initially set to 36 as no data is present in file yet
+    *audioFile->header.wavHeader.chunkId = (char[4]){'R', 'I', 'F', 'F'}; // the length of this is 5 but it should be 4, this is because the "" adds a null terminator char after
+    audioFile->header.wavHeader.chunkSize = 36;                           // initially set to 36 as no data is present in file yet
     *audioFile->header.wavHeader.format = "WAVE";
 
     // "fmt" sub-chunk
@@ -77,7 +77,9 @@ AudioFile *createWavFile(const char *fileName, uint32_t sampleRate, uint16_t bit
 void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
 {
     // maximum amplitude is defined by bits per sample
-    int amplitude = (2 << audioFile->header.wavHeader.bitsPerSample) - 1;
+    // TODO: This is probably incorrect
+    int amplitude = (1 << audioFile->header.wavHeader.bitsPerSample - 1) - 1;
+    printf("Amplitude: %d\n", amplitude);
     // the amount of bytes written to the file
     int bytesWritten = 0;
 
@@ -95,11 +97,11 @@ void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
         switch (audioFile->header.wavHeader.bitsPerSample)
         {
         case 8:
-            fwrite((int8_t*)&sample, sizeof(int8_t), 1, audioFile->audioFile);
+            fwrite((int8_t *)&sample, sizeof(int8_t), 1, audioFile->audioFile);
             bytesWritten += 1;
             break;
         case 16:
-            fwrite((int16_t*)&sample, sizeof(int16_t), 1, audioFile->audioFile);
+            fwrite((int16_t *)&sample, sizeof(int16_t), 1, audioFile->audioFile);
             bytesWritten += 2;
             break;
         case 24:
@@ -109,7 +111,7 @@ void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
             bytesWritten += 3;
             break;
         case 32:
-            fwrite((int32_t*)&sample, sizeof(int32_t), 1, audioFile->audioFile);
+            fwrite((int32_t *)&sample, sizeof(int32_t), 1, audioFile->audioFile);
             bytesWritten += 4;
             break;
         default:
@@ -134,7 +136,8 @@ void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
 
 void printWavHeader(const WavHeader *header)
 {
-    printf("Chunk ID: %.4s\n", header->chunkId);
+    printf("Chunk ID: %p\n", header->chunkId);
+    printf("Chunk ID: %p\n", header->chunkId[0]);
     printf("Chunk Size: %u\n", header->chunkSize);
     printf("Format: %.4s\n", header->format);
     printf("Subchunk1 ID: %.4s\n", header->subchunk1Id);
