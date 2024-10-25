@@ -8,14 +8,76 @@
 
 int main()
 {
-    AudioFile *audioFile = createWavFile("audio.wav", 44100, 16, 1, 140.0);
+    AudioFile *audioFile = createWavFile("audio.wav", 44100, 16, 1, 90.0);
 
-    // write 2 bars of a sine wave (2 bars assuming we're in 4:4)
-    writeSineWave(audioFile, FREQ_C5, 4 * audioFile->samplesPerBeat);
-    writeSineWave(audioFile, FREQ_G5, 4 * audioFile->samplesPerBeat);
+    // Example measure
+    // Bar 0
+    writeSineWave(audioFile, FREQ_C4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
 
-    printf("Samples written: %d\n", audioFile->samplesWritten);
-    printf("After writing\n\n");
+    writeSineWave(audioFile, FREQ_B4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_D4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_C5, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G5, audioFile->samplesPerBeat / 3);
+
+    // Bar 1
+    writeSineWave(audioFile, FREQ_C4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_B4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_D4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_C5, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G5, audioFile->samplesPerBeat / 3);
+
+    // Bar 2
+    writeSineWave(audioFile, FREQ_C4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_F4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_B4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_D4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_C5, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G5, audioFile->samplesPerBeat / 3);
+
+    // Bar 3
+    writeSineWave(audioFile, FREQ_C4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_F4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_B4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_E4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G3, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_D4, audioFile->samplesPerBeat / 3);
+
+    writeSineWave(audioFile, FREQ_A4, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_C5, audioFile->samplesPerBeat / 3);
+    writeSineWave(audioFile, FREQ_G5, audioFile->samplesPerBeat / 3);
 
     printAudioFile(audioFile);
 

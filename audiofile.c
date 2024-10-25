@@ -1,5 +1,6 @@
 #include "audiofile.h"
 #include <stdlib.h>
+#include <string.h>
 
 const double PI = 3.14159265358979323846;
 
@@ -50,12 +51,12 @@ AudioFile *createWavFile(const char *fileName, uint32_t sampleRate, uint16_t bit
     audioFile->samplesPerBeat = sampleRate * 60 / bpm;
 
     // "RIFF" chunk descriptor
-    *audioFile->header.wavHeader.chunkId = (char[4]){'R', 'I', 'F', 'F'}; // the length of this is 5 but it should be 4, this is because the "" adds a null terminator char after
-    audioFile->header.wavHeader.chunkSize = 36;                           // initially set to 36 as no data is present in file yet
-    *audioFile->header.wavHeader.format = "WAVE";
+    memcpy(audioFile->header.wavHeader.chunkId, "RIFF", 4); // the length of this is 5 but it should be 4, this is because the "" adds a null terminator char after
+    audioFile->header.wavHeader.chunkSize = 36;             // initially set to 36 as no data is present in file yet
+    memcpy(audioFile->header.wavHeader.format, "WAVE", 4);
 
     // "fmt" sub-chunk
-    *audioFile->header.wavHeader.subchunk1Id = "fmt ";
+    memcpy(audioFile->header.wavHeader.subchunk1Id, "fmt ", 4);
     audioFile->header.wavHeader.subchunk1Size = 16;
     audioFile->header.wavHeader.audioFormat = 1;           // 1 for PCM
     audioFile->header.wavHeader.numChannels = numChannels; // 1 for mono, 2 for stereo, etc.
@@ -65,21 +66,31 @@ AudioFile *createWavFile(const char *fileName, uint32_t sampleRate, uint16_t bit
     audioFile->header.wavHeader.bitsPerSample = bitsPerSample;
 
     // "data" sub-chunk
-    *audioFile->header.wavHeader.subchunk2Id = "data";
+    memcpy(audioFile->header.wavHeader.subchunk2Id, "data", 4);
     audioFile->header.wavHeader.subchunk2Size = 0; // initially 0 as no samples have been written yet
 
     // create the file
     audioFile->audioFile = _createFileAndWriteWavHeader(&audioFile->header.wavHeader, fileName);
-
+    if (audioFile->audioFile == NULL)
+    {
+        perror("Failed to create WAV file");
+        free(audioFile);
+        return NULL;
+    }
     return audioFile;
 }
 
+// TODO: This is too tightly coupled to a specific audio file format
+// TODO: Should figure out a new pattern to write to files in format agnostic way.
+// TODO: Maybe instead, we can simply create an array of custom `Sample` structs,
+// TODO: then each format (wav, mp3) can implement their own way of writing them.
 void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
 {
     // maximum amplitude is defined by bits per sample
-    // TODO: This is probably incorrect
-    int amplitude = (1 << audioFile->header.wavHeader.bitsPerSample - 1) - 1;
-    printf("Amplitude: %d\n", amplitude);
+    int amplitude = (1 << (audioFile->header.wavHeader.bitsPerSample - 1)) - 1;
+    printf("writeSineWave:\n"
+           "\tmax amplitude: %d\n\n",
+           amplitude);
     // the amount of bytes written to the file
     int bytesWritten = 0;
 
@@ -91,29 +102,42 @@ void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
 
         // Generate the sample (sine wave formula)
         double sample = amplitude * sin(2.0 * PI * freq1 * t);
+        // prevent rounding errors from sample going out of range
+        // this just returns: max(-amplitude, min(amplitude, sample))
+        sample = (-amplitude > (amplitude < sample ? amplitude : sample)) ? -amplitude : sample;
 
         // TODO: File writing logic should allow for multiple channels
         // Cast the sample sample_t
         switch (audioFile->header.wavHeader.bitsPerSample)
         {
         case 8:
-            fwrite((int8_t *)&sample, sizeof(int8_t), 1, audioFile->audioFile);
+        {
+            int8_t sampleValue = (int8_t)sample;
+            fwrite(&sampleValue, sizeof(int8_t), 1, audioFile->audioFile);
             bytesWritten += 1;
             break;
+        }
         case 16:
-            fwrite((int16_t *)&sample, sizeof(int16_t), 1, audioFile->audioFile);
+        {
+            int16_t sampleValue = (int16_t)sample;
+            fwrite(&sampleValue, sizeof(int16_t), 1, audioFile->audioFile);
             bytesWritten += 2;
             break;
+        }
         case 24:
-            // Handle 24-bit PCM as special case, it's usually packed into 3 bytes
-            int32_t sampleCasted = (int32_t)(sample * (1 << 8));
-            fwrite((uint8_t *)&sampleCasted + 1, 3, 1, audioFile->audioFile);
+        {
+            int32_t sampleValue = (int32_t)(sample * (1 << 8)); // scale up for 24 bits
+            fwrite((uint8_t *)&sampleValue + 1, 3, 1, audioFile->audioFile);
             bytesWritten += 3;
             break;
+        }
         case 32:
-            fwrite((int32_t *)&sample, sizeof(int32_t), 1, audioFile->audioFile);
+        {
+            int32_t sampleValue = (int32_t)sample;
+            fwrite(&sampleValue, sizeof(int32_t), 1, audioFile->audioFile);
             bytesWritten += 4;
             break;
+        }
         default:
             fprintf(stderr, "Unsupported bits per sample: %d\n", audioFile->header.wavHeader.bitsPerSample);
         }
@@ -121,35 +145,74 @@ void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples)
         audioFile->samplesWritten++;
     }
 
-    printf("after writing\n");
-    // update the subchunk2 (data subchunk) size in the header struct
-    audioFile->header.wavHeader.subchunk2Size += bytesWritten;
-    // set the offset in file header to 40 bytes (position of subchunk2size)
-    fseek(audioFile->audioFile, 40, SEEK_SET);
+    setDataChunkSize(&audioFile->header.wavHeader, audioFile->audioFile, audioFile->header.wavHeader.subchunk2Size + bytesWritten);
+}
 
-    // increment the subchunk size stored in the audioFile header to reflect the subchunk2size stored in the header struct
-    fwrite(&audioFile->header.wavHeader.subchunk2Size, 4, 1, audioFile->audioFile);
+void setDataChunkSize(WavHeader *fileHeader, FILE *file, uint32_t newSize)
+{
+    if (!file)
+    {
+        fprintf(stderr, "setDataChunkSize received NULL file");
+        return;
+    }
 
-    // reset the seek position in file
-    fseek(audioFile->audioFile, 0, SEEK_END);
+    fileHeader->subchunk2Size = newSize;
+
+    // seek to the position of data chunk size (40 bytes offset from beginning of file)
+    if (fseek(file, 40, SEEK_SET) != 0)
+    {
+        fprintf(stderr, "Error seeking to position of subchunk 2 size\n");
+        return;
+    }
+
+    // set subchunk 2 size
+    if (fwrite(&fileHeader->subchunk2Size, 4, 1, file) != 1)
+    {
+        fprintf(stderr, "Error writing subchunk 2 size\n");
+        return;
+    }
+
+    // update the main chunk size
+    fileHeader->chunkSize = 36 + fileHeader->subchunk2Size;
+
+    // set offset to position of chunk size (4 bytes from start of file)
+    if (fseek(file, 4, SEEK_SET) != 0)
+    {
+        fprintf(stderr, "Error seeking to position of chunk size\n");
+        return;
+    }
+
+    // set chunksize
+    if (fwrite(&fileHeader->chunkSize, 4, 1, file) != 1)
+    {
+        fprintf(stderr, "Error writing chunk size\n");
+        return;
+    }
+
+    // reset seek position to end of the file
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        fprintf(stderr, "Error seeking to end of file\n");
+        return;
+    }
 }
 
 void printWavHeader(const WavHeader *header)
 {
-    printf("Chunk ID: %p\n", header->chunkId);
-    printf("Chunk ID: %p\n", header->chunkId[0]);
-    printf("Chunk Size: %u\n", header->chunkSize);
-    printf("Format: %.4s\n", header->format);
-    printf("Subchunk1 ID: %.4s\n", header->subchunk1Id);
-    printf("Subchunk1 Size: %u\n", header->subchunk1Size);
-    printf("Audio Format: %u\n", header->audioFormat);
-    printf("Number of Channels: %u\n", header->numChannels);
-    printf("Sample Rate: %u\n", header->sampleRate);
-    printf("Byte Rate: %u\n", header->byteRate);
-    printf("Block Align: %u\n", header->blockAlign);
-    printf("Bits Per Sample: %u\n", header->bitsPerSample);
-    printf("Subchunk2 ID: %.4s\n", header->subchunk2Id);
-    printf("Subchunk2 Size: %u\n", header->subchunk2Size);
+    printf("WavHeader:\n");
+    printf("\tChunk ID: %p\n", header->chunkId);
+    printf("\tChunk Size: %u\n", header->chunkSize);
+    printf("\tFormat: %.4s\n", header->format);
+    printf("\tSubchunk1 ID: %.4s\n", header->subchunk1Id);
+    printf("\tSubchunk1 Size: %u\n", header->subchunk1Size);
+    printf("\tAudio Format: %u\n", header->audioFormat);
+    printf("\tNumber of Channels: %u\n", header->numChannels);
+    printf("\tSample Rate: %u\n", header->sampleRate);
+    printf("\tByte Rate: %u\n", header->byteRate);
+    printf("\tBlock Align: %u\n", header->blockAlign);
+    printf("\tBits Per Sample: %u\n", header->bitsPerSample);
+    printf("\tSubchunk2 ID: %.4s\n", header->subchunk2Id);
+    printf("\tSubchunk2 Size: %u\n", header->subchunk2Size);
 }
 
 void printAudioFile(const AudioFile *audioFile)
@@ -163,6 +226,5 @@ void printAudioFile(const AudioFile *audioFile)
     printf("Samples Written: %u\n", audioFile->samplesWritten);
     printf("BPM: %.2f\n", audioFile->bpm);
     printf("Samples Per Beat: %u\n", audioFile->samplesPerBeat);
-    printf("Wav Header:\n");
     printWavHeader(&audioFile->header.wavHeader);
 }

@@ -20,7 +20,7 @@ typedef struct WavHeader
     uint16_t numChannels;   // Mono = 1, stereo = 2, etc.
     uint32_t sampleRate;    // 8000, 44100, etc. the number of audio samples to write/play per second (hz)
     uint32_t byteRate;      // == sample_rate * num_channels * (bits_per_sample/8). the amount of bytes per second of audio
-    uint32_t blockAlign;    // == numChannels * (bitsPerSample/8), The number of bytes for one sample including all channels.
+    uint16_t blockAlign;    // == numChannels * (bitsPerSample/8), The number of bytes for one sample including all channels.
     uint16_t bitsPerSample; // 8 bits = 8, 16 bits = 16, etc.
 
     // "data" sub chunk
@@ -58,5 +58,13 @@ AudioFile *createWavFile(const char *fileName, uint32_t sampleRate, uint16_t bit
 // Use an oscillator to generate `numSamples` samples of a sine wave, then write them to AudioFile
 void writeSineWave(AudioFile *audioFile, freq_t freq1, uint32_t numSamples);
 
+// Print information about an AudioFile to stdout
 void printAudioFile(const AudioFile *audioFile);
+
+// Print information about a WavHeader to stdout
 void printWavHeader(const WavHeader *header);
+
+// Updates the size of the data chunk (subchunk2) in two places:
+//  - In the WavHeader struct
+//  - In the actual file pointed to by FILE*
+void setDataChunkSize(WavHeader *fileHeader, FILE *file, uint32_t newSize);
